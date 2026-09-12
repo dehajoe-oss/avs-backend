@@ -10,23 +10,31 @@ function generateToken(userId) {
 
 exports.register = async (req, res, next) => {
   try {
-    const { email, password, name, phone } = req.body
+    const { email, password, name, fullName, phone } = req.body
+    const finalName = (name || fullName || '').trim()
+    const finalPhone = (phone || '').trim()
+    const finalEmail = (email || `${finalPhone.replace(/[^0-9]/g, '') || Date.now()}@agrovetoservices.cg`).toLowerCase().trim()
 
-    if (!email || !password || !name) {
+    if (!password || !finalName) {
       return res.status(400).json({
         success: false,
-        message: 'Champs obligatoires : email, mot de passe et nom complet',
+        message: 'Champs obligatoires : nom complet et mot de passe',
       })
     }
 
-    const existing = await prisma.user.findUnique({
-      where: { email: email.toLowerCase().trim() },
+    const existing = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { email: finalEmail },
+          ...(finalPhone ? [{ phone: finalPhone }] : []),
+        ],
+      },
     })
 
     if (existing) {
       return res.status(409).json({
         success: false,
-        message: 'Un compte existe déjà avec cette adresse email.',
+        message: 'Un compte existe déjà avec cet email ou ce numéro de téléphone.',
       })
     }
 
@@ -34,10 +42,10 @@ exports.register = async (req, res, next) => {
 
     const user = await prisma.user.create({
       data: {
-        email: email.toLowerCase().trim(),
+        email: finalEmail,
         password: hashedPassword,
-        name: name.trim(),
-        phone: phone ? phone.trim() : null,
+        name: finalName,
+        phone: finalPhone || null,
         role: 'CLIENT',
       },
       select: {
@@ -64,17 +72,24 @@ exports.register = async (req, res, next) => {
 
 exports.login = async (req, res, next) => {
   try {
-    const { email, password } = req.body
+    const { email, phone, identifier, password } = req.body
+    const loginId = (identifier || email || phone || '').toLowerCase().trim()
 
-    if (!email || !password) {
+    if (!loginId || !password) {
       return res.status(400).json({
         success: false,
-        message: 'Veuillez renseigner votre email et mot de passe',
+        message: 'Veuillez renseigner votre email ou téléphone et mot de passe',
       })
     }
 
-    const user = await prisma.user.findUnique({
-      where: { email: email.toLowerCase().trim() },
+    const user = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { email: loginId },
+          { phone: loginId },
+          { phone: loginId.replace(/\s+/g, '') },
+        ],
+      },
     })
 
     if (!user || !user.isActive) {

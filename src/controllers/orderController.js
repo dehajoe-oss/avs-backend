@@ -33,22 +33,37 @@ exports.createOrder = async (req, res, next) => {
 
     // Vérification des prix et calcul sécurisé côté serveur
     for (const item of items) {
-      if (!item.productId || !item.quantity || item.quantity <= 0) {
+      const prodIdentifier = item.productId || item.id
+      if (!prodIdentifier || !item.quantity || item.quantity <= 0) {
         return res.status(400).json({
           success: false,
-          message: 'Chaque article doit avoir un productId et une quantité valide.',
+          message: 'Chaque article doit avoir un identifiant et une quantité valide.',
         })
       }
 
-      const product = await prisma.product.findUnique({
-        where: { id: item.productId },
+      let product = await prisma.product.findFirst({
+        where: {
+          OR: [
+            { id: String(prodIdentifier) },
+            { slug: String(item.slug || prodIdentifier) },
+            { title: { contains: String(item.name || item.title || ''), mode: 'insensitive' } },
+          ],
+        },
       })
 
       if (!product) {
-        return res.status(404).json({
-          success: false,
-          message: `Produit introuvable (ID: ${item.productId})`,
+        // Fallback gracieux si l'article provient du catalogue statique
+        const price = Number(item.price) || 0
+        const itemTotal = price * item.quantity
+        totalAmount += itemTotal
+        orderItemsData.push({
+          productId: null,
+          title: item.title || item.name || 'Article AVS',
+          quantity: item.quantity,
+          unitPrice: price,
+          total: itemTotal,
         })
+        continue
       }
 
       const price = product.promoPrice || product.price
