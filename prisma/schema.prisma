@@ -24,11 +24,15 @@ model User {
   password  String
   name      String
   phone     String?
-  role      Role     @default(CLIENT)
-  avatar    String?
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  role        Role     @default(CLIENT)
+  avatar      String?
+  userType    String   @default("individual") // individual, company
+  companyName String?
+  address     String?
+  city        String   @default("Pointe-Noire")
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   orders       Order[]
   appointments Appointment[]
@@ -220,7 +224,7 @@ model Appointment {
 }
 
 // ─────────────────────────────────────────────────────────────
-// FORMATIONS — FERME-ÉCOLE
+// FORMATIONS — FERME-ÉCOLE & ATELIERS PRATIQUES
 // ─────────────────────────────────────────────────────────────
 
 enum FormationStatus {
@@ -229,21 +233,53 @@ enum FormationStatus {
   CANCELLED
 }
 
+model Formation {
+  id             String                  @id @default(uuid())
+  title          String
+  slug           String                  @unique
+  category       String                  // Santé Animale, Conduite d'Élevage, Hygiène Alimentaire, HACCP & Qualité, Sécurité au Travail, Fabrication Détergents, Cosmétique & Artisanat, Sur-Mesure & Conseil
+  duration       String                  // Ex: "4 Jours (24h) - Clinique & Terrain"
+  price          String                  // Ex: "70 000 FCFA"
+  priceAmount    Float                   @default(0)
+  target         String                  // Ex: "Éleveurs, techniciens vétérinaires, régisseurs de cheptels"
+  nextSession    String                  // Ex: "Sessions bimensuelles"
+  modulesCovered String[]                @default([])
+  description    String?
+  image          String?
+  isActive       Boolean                 @default(true)
+  featured       Boolean                 @default(false)
+  order          Int                     @default(0)
+
+  registrations  FormationRegistration[]
+  createdAt      DateTime                @default(now())
+  updatedAt      DateTime                @updatedAt
+
+  @@index([slug])
+  @@index([category])
+  @@index([isActive])
+}
+
 model FormationRegistration {
-  id            String          @id @default(uuid())
-  fullName      String
-  phone         String
-  email         String?
-  formationType String          // Elevage avicole, HACCP & Hygiène, Fabrication de savons, Auditeur interne
-  sessionDate   DateTime?
-  experience    String?         // Débutant, Éleveur en activité, Professionnel agro
-  notes         String?
-  status        FormationStatus @default(PENDING)
-  createdAt     DateTime        @default(now())
-  updatedAt     DateTime        @updatedAt
+  id                String          @id @default(uuid())
+  fullName          String
+  phone             String
+  email             String?
+  formationType     String          // Ex: "Santé Animale & Prophylaxie Vétérinaire en Élevage"
+  formationId       String?
+  formation         Formation?      @relation(fields: [formationId], references: [id], onDelete: SetNull)
+  sessionDate       DateTime?
+  participantsCount Int             @default(1)
+  totalAmount       Float?
+  paymentStatus     PaymentStatus   @default(UNPAID)
+  experience        String?         // Débutant, Éleveur en activité, Professionnel agro
+  notes             String?
+  status            FormationStatus @default(PENDING)
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
 
   @@index([phone])
   @@index([status])
+  @@index([formationId])
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -372,4 +408,27 @@ model PageView {
   @@index([visitorId])
   @@index([path])
   @@index([createdAt])
+}
+
+// ─────────────────────────────────────────────────────────────
+// TÉMOIGNAGES, AVIS CLIENTS & RETOURS D'EXPÉRIENCE
+// ─────────────────────────────────────────────────────────────
+
+model Testimonial {
+  id          String   @id @default(uuid())
+  name        String
+  role        String   // Ex: "Gérant · Ferme Avicole du Kouilou"
+  project     String   // Ex: "Poussins & Provenderie", "Audit QHSE & HACCP", "Formation Ferme-École"
+  rating      Int      @default(5)
+  text        String
+  img         String?
+  result      String?  // Ex: "↑ Mortalité réduite à 1.6%"
+  isApproved  Boolean  @default(true)
+  isFeatured  Boolean  @default(false)
+  order       Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([isApproved])
+  @@index([order])
 }

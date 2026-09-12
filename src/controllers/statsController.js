@@ -16,6 +16,11 @@ exports.getDashboardStats = async (req, res, next) => {
       totalVisitors,
       recentOrders,
       recentLeads,
+      lowStockProducts,
+      totalUsers,
+      totalClients,
+      totalFormations,
+      approvedTestimonials,
     ] = await Promise.all([
       prisma.order.count(),
       prisma.order.aggregate({
@@ -41,6 +46,10 @@ exports.getDashboardStats = async (req, res, next) => {
         take: 6,
         select: { id: true, title: true, stock: true, unit: true, inStock: true, price: true },
       }),
+      prisma.user.count(),
+      prisma.user.count({ where: { role: 'CLIENT' } }),
+      prisma.formation.count({ where: { isActive: true } }),
+      prisma.testimonial.count({ where: { isApproved: true } }),
     ])
 
     res.json({
@@ -52,8 +61,12 @@ exports.getDashboardStats = async (req, res, next) => {
           leadsCount: totalLeads,
           qualifiedLeads,
           appointmentsCount: totalAppointments,
-          formationsCount: totalRegistrations,
+          formationsRegistrationsCount: totalRegistrations,
+          formationsCount: totalFormations,
           visitorsCount: totalVisitors,
+          usersCount: totalUsers,
+          clientsCount: totalClients,
+          testimonialsCount: approvedTestimonials,
         },
         recentOrders,
         recentLeads,

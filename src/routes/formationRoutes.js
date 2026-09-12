@@ -4,11 +4,17 @@ const router = express.Router()
 const formationController = require('../controllers/formationController')
 const { authenticate, requireStaffOrAdmin } = require('../middlewares/auth')
 
-// Pré-inscription publique
-router.post('/', formationController.registerFormation)
+// ── Inscriptions (Placées AVANT /:idOrSlug pour éviter le conflit d'URL) ──
+router.get('/registrations', authenticate, requireStaffOrAdmin, formationController.getAllRegistrations)
+router.patch('/registrations/:id/status', authenticate, requireStaffOrAdmin, formationController.updateRegistrationStatus)
+router.post('/register', formationController.registerFormation)
 
-// Gestion administrative
-router.get('/', authenticate, requireStaffOrAdmin, formationController.getAllRegistrations)
-router.patch('/:id/status', authenticate, requireStaffOrAdmin, formationController.updateRegistrationStatus)
+// ── Catalogue Public & CRUD Admin ──
+router.get('/', formationController.getAllFormations)
+router.post('/', formationController.registerFormation) // Fallback rétro-compatible pour soumission directe
+router.post('/create', authenticate, requireStaffOrAdmin, formationController.createFormation)
+router.get('/:idOrSlug', formationController.getFormationBySlug)
+router.put('/:id', authenticate, requireStaffOrAdmin, formationController.updateFormation)
+router.delete('/:id', authenticate, requireStaffOrAdmin, formationController.deleteFormation)
 
 module.exports = router
