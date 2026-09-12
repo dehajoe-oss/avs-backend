@@ -36,6 +36,11 @@ exports.getDashboardStats = async (req, res, next) => {
         take: 5,
         orderBy: { createdAt: 'desc' },
       }),
+      prisma.product.findMany({
+        where: { stock: { lte: 200 } },
+        take: 6,
+        select: { id: true, title: true, stock: true, unit: true, inStock: true, price: true },
+      }),
     ])
 
     res.json({
@@ -52,6 +57,7 @@ exports.getDashboardStats = async (req, res, next) => {
         },
         recentOrders,
         recentLeads,
+        lowStockProducts,
       },
     })
   } catch (error) {
