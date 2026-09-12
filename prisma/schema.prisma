@@ -1,0 +1,375 @@
+// backend/prisma/schema.prisma
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// ─────────────────────────────────────────────────────────────
+// UTILISATEURS & AUTHENTIFICATION
+// ─────────────────────────────────────────────────────────────
+
+enum Role {
+  ADMIN
+  STAFF
+  CLIENT
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  name      String
+  phone     String?
+  role      Role     @default(CLIENT)
+  avatar    String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  orders       Order[]
+  appointments Appointment[]
+  invoices     Invoice[]
+
+  @@index([email])
+  @@index([role])
+}
+
+// ─────────────────────────────────────────────────────────────
+// BOUTIQUE & CATALOGUE PRODUITS
+// ─────────────────────────────────────────────────────────────
+
+model Category {
+  id          String    @id @default(uuid())
+  name        String    @unique
+  slug        String    @unique
+  description String?
+  icon        String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  products    Product[]
+}
+
+model Product {
+  id          String   @id @default(uuid())
+  title       String
+  slug        String   @unique
+  description String
+  price       Float
+  promoPrice  Float?
+  stock       Int      @default(0)
+  inStock     Boolean  @default(true)
+  unit        String   @default("unité") // sac 50kg, unité, flacon 1L, etc.
+  image       String
+  images      String[] @default([])
+  badge       String?  // Ex: "Populaire", "Arrivage", "Cobb 500"
+  rating      Float    @default(5.0)
+  features    String[] @default([])
+
+  categoryId  String?
+  category    Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+
+  orderItems  OrderItem[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([slug])
+  @@index([categoryId])
+}
+
+// ─────────────────────────────────────────────────────────────
+// COMMANDES & PAIEMENTS
+// ─────────────────────────────────────────────────────────────
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  PROCESSING
+  SHIPPED
+  DELIVERED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  UNPAID
+  PENDING
+  PAID
+  REFUNDED
+  FAILED
+}
+
+model Order {
+  id              String        @id @default(uuid())
+  orderNumber     String        @unique
+  userId          String?
+  user            User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  customerName    String
+  customerEmail   String
+  customerPhone   String
+  customerAddress String?
+  customerCity    String        @default("Pointe-Noire")
+
+  totalAmount     Float
+  status          OrderStatus   @default(PENDING)
+  paymentStatus   PaymentStatus @default(UNPAID)
+  paymentMethod   String        @default("AIRTEL_MONEY") // AIRTEL_MONEY, MTN_MOMO, CASH, CARD
+  paymentRef      String?
+  notes           String?
+
+  items           OrderItem[]
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@index([orderNumber])
+  @@index([status])
+  @@index([customerPhone])
+  @@index([createdAt])
+}
+
+model OrderItem {
+  id        String  @id @default(uuid())
+  orderId   String
+  order     Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId String?
+  product   Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+
+  title     String
+  quantity  Int
+  unitPrice Float
+  total     Float
+
+  @@index([orderId])
+}
+
+// ─────────────────────────────────────────────────────────────
+// LEADS & PROSPECTS (Contact, Devis, Téléphonie)
+// ─────────────────────────────────────────────────────────────
+
+enum LeadStatus {
+  NEW
+  QUALIFIED
+  CONTACTED
+  CONVERTED
+  LOST
+}
+
+model Lead {
+  id          String     @id @default(uuid())
+  name        String
+  email       String?
+  phone       String
+  service     String     // clinique, provenderie, poussins, formations, qhse, cosmetique, autre
+  budgetRange String?
+  timeline    String?
+  message     String
+  score       Int        @default(0)
+  status      LeadStatus @default(NEW)
+  notes       String?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  @@index([status])
+  @@index([phone])
+  @@index([createdAt])
+}
+
+// ─────────────────────────────────────────────────────────────
+// CLINIQUE VÉTÉRINAIRE — RENDEZ-VOUS & VISITES D'ÉLEVAGE
+// ─────────────────────────────────────────────────────────────
+
+enum AppointmentType {
+  CONSULTATION_CABINET
+  URGENCE_247
+  VISITE_ELEVAGE
+  VACCINATION_CHEF_LIEU
+  AUTOPSIE_LABORATOIRE
+}
+
+enum AppointmentStatus {
+  PENDING
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+}
+
+model Appointment {
+  id              String            @id @default(uuid())
+  clientName      String
+  clientPhone     String
+  clientEmail     String?
+  animalType      String            // Chien, Chat, Volaille (bande), Porc, Autre
+  serviceType     AppointmentType   @default(CONSULTATION_CABINET)
+  appointmentDate DateTime
+  addressOrFarm   String?           // Lieu de la ferme si visite
+  notes           String?
+  status          AppointmentStatus @default(PENDING)
+
+  userId          String?
+  user            User?             @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  @@index([appointmentDate])
+  @@index([status])
+  @@index([clientPhone])
+}
+
+// ─────────────────────────────────────────────────────────────
+// FORMATIONS — FERME-ÉCOLE
+// ─────────────────────────────────────────────────────────────
+
+enum FormationStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+}
+
+model FormationRegistration {
+  id            String          @id @default(uuid())
+  fullName      String
+  phone         String
+  email         String?
+  formationType String          // Elevage avicole, HACCP & Hygiène, Fabrication de savons, Auditeur interne
+  sessionDate   DateTime?
+  experience    String?         // Débutant, Éleveur en activité, Professionnel agro
+  notes         String?
+  status        FormationStatus @default(PENDING)
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  @@index([phone])
+  @@index([status])
+}
+
+// ─────────────────────────────────────────────────────────────
+// FACTURATION & DEVIS
+// ─────────────────────────────────────────────────────────────
+
+enum InvoiceStatus {
+  DRAFT
+  SENT
+  PAID
+  OVERDUE
+  CANCELLED
+}
+
+model Invoice {
+  id            String        @id @default(uuid())
+  invoiceNumber String        @unique
+  clientName    String
+  clientEmail   String?
+  clientPhone   String?
+  clientAddress String?
+  clientCompany String?
+
+  date          DateTime      @default(now())
+  dueDate       DateTime
+  status        InvoiceStatus @default(DRAFT)
+  currency      String        @default("FCFA")
+
+  subtotal      Float         @default(0)
+  taxRate       Float         @default(0) // en pourcentage (ex: 18%)
+  taxAmount     Float         @default(0)
+  discount      Float         @default(0)
+  total         Float         @default(0)
+  notes         String?
+
+  createdById   String?
+  createdBy     User?         @relation(fields: [createdById], references: [id], onDelete: SetNull)
+
+  items         InvoiceItem[]
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  @@index([invoiceNumber])
+  @@index([status])
+  @@index([date])
+}
+
+model InvoiceItem {
+  id          String   @id @default(uuid())
+  invoiceId   String
+  invoice     Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  description String
+  quantity    Float    @default(1)
+  unitPrice   Float    @default(0)
+  amount      Float    @default(0)
+
+  @@index([invoiceId])
+}
+
+// ─────────────────────────────────────────────────────────────
+// CONVERSATIONS ASSISTANT IA & CHATBOT
+// ─────────────────────────────────────────────────────────────
+
+enum ConversationStatus {
+  ACTIVE
+  ENDED
+  CONVERTED
+}
+
+enum MessageRole {
+  USER
+  ASSISTANT
+  SYSTEM
+}
+
+model Conversation {
+  id           String             @id @default(uuid())
+  sessionId    String             @unique
+  ipHash       String?
+  status       ConversationStatus @default(ACTIVE)
+  leadScore    Int                @default(0)
+  messageCount Int                @default(0)
+  messages     Message[]
+  createdAt    DateTime           @default(now())
+  endedAt      DateTime?
+
+  @@index([sessionId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model Message {
+  id             String       @id @default(uuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  role           MessageRole
+  content        String
+  modelUsed      String?
+  createdAt      DateTime     @default(now())
+
+  @@index([conversationId])
+}
+
+// ─────────────────────────────────────────────────────────────
+// ANALYTICS & TRAFIC VISITEURS
+// ─────────────────────────────────────────────────────────────
+
+model Visitor {
+  id          String   @id @default(uuid())
+  visitorId   String   @unique
+  firstSeenAt DateTime @default(now())
+  lastSeenAt  DateTime @updatedAt
+  visitCount  Int      @default(1)
+  pageViews   PageView[]
+}
+
+model PageView {
+  id        String   @id @default(uuid())
+  visitorId String
+  visitor   Visitor  @relation(fields: [visitorId], references: [id], onDelete: Cascade)
+  path      String
+  referrer  String?
+  device    String   @default("desktop") // mobile, tablet, desktop
+  createdAt DateTime @default(now())
+
+  @@index([visitorId])
+  @@index([path])
+  @@index([createdAt])
+}
