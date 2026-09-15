@@ -34,6 +34,10 @@ model User {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
+  // Réinitialisation mot de passe (token hashé, jamais en clair)
+  passwordResetToken   String?   @unique
+  passwordResetExpires DateTime?
+
   orders       Order[]
   appointments Appointment[]
   invoices     Invoice[]

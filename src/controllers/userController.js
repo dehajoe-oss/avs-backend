@@ -1,6 +1,7 @@
 // backend/src/controllers/userController.js
 const prisma = require('../lib/prisma')
 const bcrypt = require('bcryptjs')
+const { checkPassword, normalizePhone } = require('../lib/accountPolicy')
 
 /**
  * Liste paginée et filtrable de tous les utilisateurs (Admin / Staff)
@@ -154,6 +155,18 @@ exports.createUser = async (req, res, next) => {
       })
     }
 
+    const passwordError = checkPassword(password)
+    if (passwordError) {
+      return res.status(400).json({ success: false, message: passwordError })
+    }
+
+    if (phone && String(phone).trim() && !normalizePhone(phone)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Numéro de téléphone invalide (8 à 15 chiffres attendus).',
+      })
+    }
+
     const existing = await prisma.user.findUnique({
       where: { email: email.trim().toLowerCase() },
     })
@@ -172,7 +185,7 @@ exports.createUser = async (req, res, next) => {
         email: email.trim().toLowerCase(),
         password: hashedPassword,
         name: name.trim(),
-        phone: phone ? phone.trim() : null,
+        phone: phone ? normalizePhone(phone) : null,
         role: role || 'CLIENT',
         userType: userType || 'individual',
         companyName: companyName ? companyName.trim() : null,
@@ -213,9 +226,25 @@ exports.updateUser = async (req, res, next) => {
     const { id } = req.params
     const { name, phone, email, role, userType, companyName, address, city, isActive, password } = req.body
 
+    // Anti auto-dégradation : on ne quitte pas son propre rôle Direction par API.
+    if (req.user && req.user.id === id && role && role !== 'ADMIN' && req.user.role === 'ADMIN') {
+      return res.status(400).json({
+        success: false,
+        message: 'Vous ne pouvez pas retirer votre propre rôle Direction.',
+      })
+    }
+
     const updateData = {}
     if (name) updateData.name = name.trim()
-    if (phone !== undefined) updateData.phone = phone ? phone.trim() : null
+    if (phone !== undefined) {
+      if (phone && String(phone).trim() && !normalizePhone(phone)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Numéro de téléphone invalide (8 à 15 chiffres attendus).',
+        })
+      }
+      updateData.phone = phone ? normalizePhone(phone) : null
+    }
     if (email) updateData.email = email.trim().toLowerCase()
     if (role) updateData.role = role
     if (userType) updateData.userType = userType
@@ -224,7 +253,11 @@ exports.updateUser = async (req, res, next) => {
     if (city) updateData.city = city
     if (isActive !== undefined) updateData.isActive = Boolean(isActive)
 
-    if (password && password.trim().length >= 6) {
+    if (password) {
+      const passwordError = checkPassword(password)
+      if (passwordError) {
+        return res.status(400).json({ success: false, message: passwordError })
+      }
       updateData.password = await bcrypt.hash(password.trim(), 10)
     }
 
