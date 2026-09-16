@@ -29,7 +29,7 @@ exports.uploadImage = async (req, res, next) => {
       const uploadPromise = new Promise((resolve, reject) => {
         const stream = cloudinary.uploader.upload_stream(
           {
-            folder: `akatech/${folder}`,
+            folder: `avs/${folder}`,
             transformation: [{ quality: 'auto', fetch_format: 'auto' }],
           },
           (error, result) => {

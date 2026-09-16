@@ -162,16 +162,16 @@ Le serveur démarrera sur **`http://localhost:5000`**.
 
 ### Méthode 1 : Déploiement Automatique via Blueprint (Recommandé)
 
-Le fichier [`render.yaml`](file:///home/joe/akatech-agencenext/backend/render.yaml) est déjà configuré à la racine du backend.
+Le fichier `render.yaml` est déjà configuré à la racine du dépôt.
 
 1. Connectez-vous sur [Render.com](https://render.com).
 2. Cliquez sur **New +** puis sélectionnez **Blueprint**.
-3. Choisissez votre dépôt GitHub (`johaoooo/avs`).
+3. Choisissez votre dépôt GitHub (`johaoooo/avs-backend`).
 4. Render va automatiquement détecter `render.yaml` et créer :
    - Une base de données **PostgreSQL** (`avs-postgres`) gratuite.
    - Le **Web Service Node.js** (`avs-backend`).
    - Lier automatiquement la variable `DATABASE_URL`.
-5. Cliquez sur **Apply** : Render installe les dépendances, génère Prisma, déploie les migrations et exécute le seed automatiquement !
+5. Cliquez sur **Apply** : Render installe les dépendances, génère Prisma, déploie le schéma et exécute le seed automatiquement !
 
 ---
 
@@ -188,13 +188,13 @@ Si vous préférez créer les services manuellement :
 
 #### Étape B : Créer le Web Service Node.js
 1. Cliquez sur **New +** > **Web Service**.
-2. Connectez votre dépôt GitHub.
+2. Connectez votre dépôt GitHub (`johaoooo/avs-backend`).
 3. Renseignez les paramètres suivants :
    - **Name** : `avs-backend`
    - **Region** : Même région que la base (ex: `Frankfurt`)
-   - **Root Directory** : `backend`
+   - **Root Directory** : *(Laisser vide)*
    - **Runtime** : `Node`
-   - **Build Command** : `npm install && npx prisma generate && npx prisma migrate deploy && node prisma/seed.js`
+   - **Build Command** : `npm install && npx prisma generate && npx prisma db push && node prisma/seed.js`
    - **Start Command** : `npm start`
 4. Dans la section **Environment Variables**, ajoutez :
    - `DATABASE_URL` : Collez l'URL de votre base PostgreSQL Render
